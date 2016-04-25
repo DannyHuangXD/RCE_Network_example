@@ -1,0 +1,216 @@
+<html>
+    <head>
+        <title>RCE Network Demonstration</title>
+        <meta charset="utf-8"/>
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css" integrity="sha384-aUGj/X2zp5rLCbBxumKTCw2Z50WgIr1vs/PFN4praOTvYXWlVyh2UtNUU0KAUhAX" crossorigin="anonymous">
+        <style>
+            #RCE_canvas{background-color:rgba(128, 128,128, 0.2);}
+            #RCE_frame{padding-top: 20px;}
+            h1{margin-bottom: 60px;}
+        </style>
+        <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+        <script type = "text/javascript">
+            var xList = []; var yList = []; var catList = [];
+            var rad = []; var x = 0; var minNum = -1;          
+            var cate = false; var classify = false;
+            var minList = []; var minNumList = [];
+            
+            document.addEventListener("DOMContentLoaded", init, false);
+            
+            function init(){
+                var canvas = document.getElementById("RCE_canvas");
+                canvas.addEventListener("mousedown", getPosition, false);
+            }
+            
+            function getPosition(event){
+                var maxRadius = 30, minDist = 10000;
+                
+                var x = new Number();
+                var y = new Number();
+                var canvas = document.getElementById("RCE_canvas");
+                var ctx = canvas.getContext("2d");
+                if (event.x != undefined && event.y != undefined){
+                    x = event.x;
+                    y = event.y;
+                }
+                else{
+                    x = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                    y = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+                }
+                x -= canvas.offsetLeft;
+                y -= canvas.offsetTop;
+
+                if(!classify){
+                    xList.push(x);
+                    yList.push(y);
+                    catList.push(cate);
+                    rad.push(maxRadius);
+
+                    for (var i = 0; i < xList.length - 1; i++){
+                        if (cate != catList[i]){
+                            var distance = Math.pow(Math.pow(xList[i] - x, 2) + Math.pow(yList[i] - y, 2), 0.5);
+                            if (minDist > distance){
+                                minNum = i;
+                            }
+                            minDist = Math.min (distance, minDist);
+                            if (minDist < maxRadius && rad[minNum] > minDist){
+                                rad[xList.length - 1] = minDist;
+                                rad[minNum] = minDist;
+                            }
+                        }
+                    }//end of loop
+                    updateCanvas();
+                 //   d3_update();
+                }
+                else{
+                    minNum = -1;
+                    ctx.fillStyle = "green";
+                    ctx.fillRect(x, y, 2, 2);
+                    minList = [];
+                    minNumList = [];
+                    for (var i = 0; i < xList.length; i++){
+                        var distance = Math.pow(Math.pow(xList[i] - x, 2) + Math.pow(yList[i] - y, 2), 0.5);
+                        if (minDist > distance && maxRadius > distance){
+                            minNum = i;
+                            minDist = Math.min (distance, minDist);
+                            //minList.push(distance);
+                            //minNumList.push(catList[minNum]);
+                        }
+                        else
+                            minNumList.push(undefined);
+                        
+                    }
+                    if(minNum!=-1)
+                        rect_indicator(catList[minNum]);
+                    else
+                        rect_indicator(undefined);
+                    /*
+                    var hasCategory = false;
+                    for (var i = 0; i < minList.length; i++){
+                        if (minList[i] != undefined)
+                            hasCategory = true;
+                        if (minList[i] == minDist)
+                            rect_indicator(minNumList[i]);
+                        if (i == minList.length - 1 && hasCategory == false)
+                            alert ("NO CATEGORY EXISTS.");
+                    }
+                    */
+                classification();
+                }
+            }
+           
+            function changeCategories(){
+                if (cate == true){
+                    cate = false;
+                    document.getElementById("example_circle").style.fill = 'rgba(255,255,0,1)';
+                }
+                else{ 
+                    cate = true;
+                    document.getElementById("example_circle").style.fill = 'rgba(255,0,255,1)';
+                }
+            }
+            
+            function updateCanvas(){
+                var canvas = document.getElementById("RCE_canvas");
+                var ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (var i = 0; i < xList.length; i++){
+                    ctx.beginPath();
+                    ctx.arc(xList[i], yList[i], rad[i], 0, 2* Math.PI, false);
+                    if (catList[i] == false)
+                        ctx.fillStyle = "rgba(255,255,0,0.5)";
+                    else ctx.fillStyle = "rgba(255,0,255,0.5)";
+                    ctx.fill();
+                }
+            }
+            function classification(){
+                if (!classify) classify = true;
+                else classify = false;
+            }
+            function d3_update(){
+                d3.select("svg").remove();
+                var svgContainer = d3.select("body").append("svg")
+                                    .attr("width", 300).attr("height", 150);
+                var circle = d3.select("svg").selectAll("circle")
+                            .data(xList)
+                            .enter().append("circle")
+                            .attr("cx", function(d, i){return xList[i];})
+                            .attr("cy", function(d, i){return yList[i];})
+                            .attr("r", function(d, i){return rad[i];});
+                redraw();
+            }
+            function change_canvasSize(){
+                var width = document.getElementById("canvas_width").value;
+                var height = document.getElementById("canvas_height").value;
+                var canvas = document.getElementById("RCE_canvas");
+                canvas.width = width;
+                canvas.height = height;
+                clear();
+            }
+            function clear(){
+                xList = [];
+                yList = [];
+                rad = [];
+                x = 0; 
+                minNum = 0;          
+                cate = false;
+                classify = false;
+                minList = []
+                minNumList = [];
+            }
+            function rect_indicator(x){
+                if (x == true){
+                    document.getElementById("category_indicator").style.fill = "rgba(255,0,255,1)";
+                }
+                else if (x == false){
+                    document.getElementById("category_indicator").style.fill = "rgba(255,255,0,1)";
+                }
+                else
+                    document.getElementById("category_indicator").style.fill = "black";                    
+            }
+        </script>
+    </head>
+    <body>
+        <h1 align="center">Restricted Coloumb Energy Neural Network (RCE)</h1>
+        <form class="form-inline" align = "center">
+            <div class="form-group">
+                <label for="newCanvasWidth">Width</label>
+                <input type="text" class="form-control" id="canvas_width" placeholder="640">
+            </div>
+            <div class="form-group">
+                <label for="newCanvasHeight">Height</label>
+                <input type="text" class="form-control" id="canvas_height" placeholder="320">
+            </div>
+            <button type="button" class="btn btn-default" id = "submitCanvas" onclick="change_canvasSize()">Change Canvas Size</button>
+        </form>
+        
+        <div class="form-inline" align = "center" >
+            <div class="form-group">
+                <input type = "button" class="btn btn-default" id = "changeCate" value = "Change Category" onclick = "changeCategories()">
+                <div class = "form-group">
+                    <svg width = "40" height = "40" ><circle id = "example_circle" stroke = "black" stroke-width = "2" fill = "rgba(255,255,0,1)" cx = "20" cy = "20" r = "16"></circle></svg>
+                </div>
+            </div>
+            <div class = "form-group">
+                <input type = 'button' class="btn btn-default" Name = 'classifile' value = "Which category?" onclick="classification()">
+                <div class = "form-group">
+                    <svg width = "40" height = "40" ><rect id = "category_indicator" stroke = "black" stroke-width = "2" fill = "white" x = "4" y = "4" width = "32" height = "32" ></rect></svg>
+                </div>
+            </div>
+        </div>
+        <div class = "form-inline" align = "center" style = "visibility: hidden">
+            <label for="newRadius">New Radius</label>
+            <input type="text" class="form-control" id="radius_size" placeholder="30" size = 5px maxlength="">
+            <button type="button" class="btn btn-default" id = "submitRadius" onclick="changeRadius()">Change</button>
+        </div>
+
+        
+        <div id = "RCE_frame" align = "center">
+            <canvas id = "RCE_canvas" width = "640" height = "320"></canvas>
+        </div>
+    </body>
+</html>
